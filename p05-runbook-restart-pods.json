@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "0.3",
+  "description": "Cleerly Runbook: Identify and restart unhealthy EKS pods in production namespace",
+  "assumeRole": "{{ AutomationAssumeRole }}",
+  "parameters": {
+    "Namespace": {
+      "type": "String",
+      "default": "production",
+      "description": "Kubernetes namespace to inspect"
+    },
+    "DeploymentName": {
+      "type": "String",
+      "description": "Name of the Kubernetes deployment to restart"
+    },
+    "ClusterName": {
+      "type": "String",
+      "default": "cleerly-prod",
+      "description": "EKS cluster name"
+    },
+    "AutomationAssumeRole": {
+      "type": "AWS::IAM::Role::Arn",
+      "description": "IAM role for SSM Automation execution"
+    }
+  },
+  "mainSteps": [
+    {
+      "name": "UpdateKubeconfig",
+      "action": "aws:executeScript",
+      "inputs": {
+        "Runtime": "python3.8",
+        "Handler": "update_kubeconfig",
+        "Script": "def update_kubeconfig(events, context):\n    import subprocess\n    result = subprocess.run(\n        ['aws', 'eks', 'update-kubeconfig',\n         '--name', events['ClusterName'],\n         '--region', 'us-east-1'],\n        capture_output=True, text=True\n    )\n    return {'stdout': result.stdout, 'returncode': result.returncode}",
+        "InputPayload": {
+          "ClusterName": "{{ ClusterName }}"
+        }
+      }
+    },
+    {
+      "name": "CheckPodHealth",
+      "action": "aws:executeScript",
+      "inputs": {
+        "Runtime": "python3.8",
+        "Handler": "check_health",
+        "Script": "def check_health(events, context):\n    import subprocess\n    result = subprocess.run(\n        ['kubectl', 'get', 'pods', '-n', events['Namespace'],\n         '--field-selector=status.phase!=Running', '-o', 'wide'],\n        capture_output=True, text=True\n    )\n    return {'unhealthy_pods': result.stdout, 'count': len(result.stdout.strip().split('\\n')) - 1}",
+        "InputPayload": {
+          "Namespace": "{{ Namespace }}"
+        }
+      },
+      "outputs": [
+        {"Name": "unhealthy_pods", "Selector": "$.Payload.unhealthy_pods", "Type": "String"},
+        {"Name": "count", "Selector": "$.Payload.count", "Type": "Integer"}
+      ]
+    },
+    {
+      "name": "RolloutRestart",
+      "action": "aws:executeScript",
+      "inputs": {
+        "Runtime": "python3.8",
+        "Handler": "restart",
+        "Script": "def restart(events, context):\n    import subprocess\n    subprocess.run(\n        ['kubectl', 'rollout', 'restart',\n         'deployment/' + events['Deployment'],\n         '-n', events['Namespace']],\n        capture_output=True, text=True\n    )\n    result = subprocess.run(\n        ['kubectl', 'rollout', 'status',\n         'deployment/' + events['Deployment'],\n         '-n', events['Namespace'], '--timeout=300s'],\n        capture_output=True, text=True\n    )\n    return {'status': result.stdout, 'success': result.returncode == 0}",
+        "InputPayload": {
+          "Namespace": "{{ Namespace }}",
+          "Deployment": "{{ DeploymentName }}"
+        }
+      },
+      "outputs": [
+        {"Name": "restart_status", "Selector": "$.Payload.status", "Type": "String"},
+        {"Name": "success", "Selector": "$.Payload.success", "Type": "Boolean"}
+      ]
+    },
+    {
+      "name": "VerifyRecovery",
+      "action": "aws:executeScript",
+      "inputs": {
+        "Runtime": "python3.8",
+        "Handler": "verify",
+        "Script": "def verify(events, context):\n    import subprocess\n    result = subprocess.run(\n        ['kubectl', 'get', 'pods', '-n', events['Namespace'],\n         '-l', 'app=' + events['Deployment'],\n         '--field-selector=status.phase=Running', '-o', 'name'],\n        capture_output=True, text=True\n    )\n    pods = [p for p in result.stdout.strip().split('\\n') if p]\n    return {'running_pods': len(pods), 'pod_names': pods}",
+        "InputPayload": {
+          "Namespace": "{{ Namespace }}",
+          "Deployment": "{{ DeploymentName }}"
+        }
+      }
+    }
+  ],
+  "outputs": [
+    "CheckPodHealth.unhealthy_pods",
+    "RolloutRestart.restart_status",
+    "VerifyRecovery.running_pods"
+  ]
+}
