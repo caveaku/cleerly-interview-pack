@@ -258,6 +258,26 @@ EOF
 
 ---
 
+## Interview Talking Points
+
+**"Why OIDC for GitHub Actions instead of storing an AWS access key as a secret?"**
+Long-lived static credentials are the number-one cause of cloud breaches. OIDC issues short-lived tokens scoped to a specific repo and branch — they expire after the job ends and can't be leaked, rotated incorrectly, or reused outside their context. It also eliminates the ops burden of rotating secrets across dozens of repos.
+
+**"What happens if Trivy finds a CRITICAL vulnerability?"**
+The pipeline exits with code 1, blocking the deploy job from running. The SARIF results are still uploaded to the GitHub Security tab so the developer sees exactly which CVE, which package, and what the fix version is — all without leaving GitHub. The `ignore-unfixed: true` flag avoids blocking on CVEs where no upstream fix exists yet, so the team isn't held hostage by third-party package timelines.
+
+**"Why GitOps with ArgoCD instead of kubectl apply in the pipeline?"**
+Direct `kubectl apply` in CI is imperative and stateless — if the cluster drifts, nothing catches it. ArgoCD continuously reconciles desired state (Git) with actual state (cluster). `selfHeal: true` auto-reverts manual changes, and `prune: true` removes resources deleted from Git. Every deployment is traceable to a Git commit, which satisfies the audit requirements in a HIPAA environment.
+
+**"How do you handle a rollback?"**
+Two options: revert the Helm values commit in Git (ArgoCD auto-syncs within seconds), or use `argocd app rollback cleerly-api <revision>` to jump to a previous sync. Because image tags are Git SHAs, I always know exactly what code is running and can reproduce any historical deployment deterministically.
+
+**"What's the image tagging strategy and why?"**
+Images are tagged with the full Git SHA. This is immutable — you can never accidentally overwrite a deployed image, and you can trace any running container back to the exact commit and PR that produced it. `latest` is also pushed for convenience in dev but is never referenced in production Helm values.
+
+**"How would you handle secrets in the pipeline without hardcoding them?"**
+AWS Secrets Manager + the External Secrets Operator in Kubernetes. The pipeline itself never touches secrets — it only pushes an image tag to Git. The running pod fetches secrets at startup from Secrets Manager via a synced `ExternalSecret` CRD, with KMS encryption at rest and IAM role-based access scoped to the specific namespace.
+
 ## Step 5 — Validation Commands
 
 ```bash

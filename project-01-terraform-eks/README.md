@@ -250,6 +250,26 @@ pre-commit run --all-files
 
 ---
 
+## Interview Talking Points
+
+**"Why S3 + DynamoDB for remote state instead of Terraform Cloud?"**
+S3 gives you full control over encryption (KMS), versioning, and access policies — critical in a HIPAA environment where you own the audit trail. DynamoDB locking costs near zero and prevents concurrent applies from corrupting state. Terraform Cloud is a valid alternative but adds a third-party dependency to a sensitive data plane.
+
+**"Why is the EKS API endpoint set to private-only?"**
+HIPAA requires that systems processing PHI not be exposed to the public internet unless absolutely necessary. A private-only endpoint means the Kubernetes API is only reachable from within the VPC — eliminating an entire class of credential-stuffing and brute-force attack surface. Engineers access it over a VPN or bastion.
+
+**"Why a separate NAT gateway per AZ instead of a single shared one?"**
+A single NAT gateway is a regional single point of failure. If the AZ hosting it goes down, all private subnet egress traffic across the cluster drops. The extra cost (~$32/month per AZ) is the price of availability in a production healthcare environment where downtime has patient impact.
+
+**"How do you prevent insecure Terraform from reaching production?"**
+Shift-left: `tfsec` and `checkov` run as pre-commit hooks on every commit and again in CI. Specific checks like `CKV_AWS_58` (EKS secrets encryption), `CKV_AWS_79` (IMDSv2), and `CKV_AWS_111` (no wildcard IAM) are enforced as hard gates — the pipeline fails if any are violated. This means security issues are caught at the developer's keyboard, not in a prod deploy.
+
+**"Why does the GPU node group use SPOT capacity?"**
+AI inference workloads at Cleerly are batch-oriented and fault-tolerant — a preempted node just re-queues the scan job. SPOT instances on `g4dn.xlarge` run 60–70% cheaper than On-Demand. The taint `nvidia.com/gpu=true:NoSchedule` ensures only GPU-aware workloads land on these nodes, preventing accidental scheduling of general services onto expensive hardware.
+
+**"Walk me through how you'd recover from a corrupted Terraform state."**
+S3 versioning means every state file version is retained. I'd first run `terraform state list` to understand current state, then restore the previous S3 version, unlock the DynamoDB entry manually if needed, and run `terraform plan` to diff actual infrastructure against the restored state before touching anything.
+
 ## Validation Commands
 
 ```bash

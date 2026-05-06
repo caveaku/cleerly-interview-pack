@@ -246,6 +246,23 @@ EOF
 
 ---
 
+## Interview Talking Points
+
+**"Why Karpenter over the Cluster Autoscaler?"**
+Cluster Autoscaler works at the node group level and can only scale pre-defined instance types. Karpenter provisions individual nodes in under 60 seconds by directly calling the EC2 fleet API, picks the optimal instance type from a family of options based on pending pod requirements, and consolidates underutilized nodes automatically. For a workload mix that includes both general API pods and occasional GPU inference jobs, that flexibility cuts infrastructure costs significantly compared to maintaining separate autoscaling groups.
+
+**"What does `consolidateAfter: 30s` mean and why is it aggressive?"**
+It tells Karpenter to bin-pack and terminate underutilized nodes 30 seconds after they become consolidation candidates. In a cloud-native environment with proper PodDisruptionBudgets, this is safe and keeps the fleet lean. The `expireAfter: 720h` (30-day TTL) ensures nodes are regularly cycled through for OS and AMI patch updates — important for HIPAA where unpatched nodes are a compliance finding.
+
+**"How does kube-prometheus-stack differ from running Prometheus manually?"**
+The Helm chart ships Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics, and a full set of default alerting rules pre-wired together. More importantly, it installs the Prometheus Operator CRDs — `ServiceMonitor`, `PodMonitor`, `PrometheusRule` — which let you configure scraping and alerting as Kubernetes objects alongside your application manifests, rather than editing a central Prometheus config file.
+
+**"Walk me through your zero-downtime EKS upgrade process."**
+Four steps in order: (1) run Pluto to detect any deprecated API versions in your manifests before the upgrade — a v1.25 cluster won't serve `PodSecurityPolicy` resources, for example; (2) upgrade the control plane, which is AWS-managed and non-disruptive; (3) update the EKS add-ons (CoreDNS, kube-proxy, VPC CNI) to versions compatible with the new control plane; (4) drain and replace managed node groups — AWS does this rolling, one node at a time, respecting PodDisruptionBudgets. Workloads stay up throughout.
+
+**"What are recording rules and why do they matter at scale?"**
+Recording rules pre-compute expensive PromQL expressions on a schedule and store the result as a new metric. Without them, a Grafana dashboard with 10 panels each running a `rate()` over 30 days would hit Prometheus with expensive range queries on every page load. Pre-aggregated rules make dashboards fast and reduce Prometheus query load, which matters when you're storing 30 days of metrics at 30-second resolution across hundreds of pods.
+
 ## Step 5 — EKS Cluster Version Upgrade (Zero-Downtime)
 
 ```bash

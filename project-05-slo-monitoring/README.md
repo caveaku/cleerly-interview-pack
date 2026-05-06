@@ -362,6 +362,26 @@ echo "https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards
 
 ---
 
+## Interview Talking Points
+
+**"How do you explain an error budget to a non-technical stakeholder?"**
+An SLO of 99.9% means we allow 43 minutes of downtime per month — that's the error budget. We spend it on risky deployments, experiments, and incidents. When the budget is full, engineering has earned the right to move fast. When it's nearly empty, we freeze releases and focus on reliability. It turns reliability into a shared language between product and engineering instead of a vague aspiration.
+
+**"Why multi-window multi-burn-rate alerts instead of a simple error threshold?"**
+A fixed threshold like "alert if error rate > 1% for 5 minutes" either fires too often on transient spikes (alert fatigue) or misses slow-burn incidents that drain the budget over days without crossing the threshold. Multi-window burn rate alerts fire when you're consuming budget significantly faster than normal — a 14.4x burn rate over 1 hour means you'll exhaust the monthly budget in 2 hours, which is always worth a page regardless of the absolute error rate.
+
+**"Why CloudWatch composite alarms instead of individual alarms per metric?"**
+Individual alarms create noise — an elevated CPU alarm fires dozens of times during normal traffic spikes. A composite alarm requires correlated signals: `5xx errors high AND (CPU critical OR DB connections exhausted)`. This pattern mirrors how incidents actually manifest and cuts on-call pages by requiring that multiple independent signals confirm a real production degradation before waking someone up at 2am.
+
+**"What's the value of SSM Automation runbooks over a wiki page?"**
+Wiki runbooks go stale, are skipped under pressure, and leave no audit trail. SSM Automation runbooks are executable, version-controlled, and produce a structured execution log in AWS showing exactly which steps ran, when, and what the output was. In a HIPAA environment that needs audit trails for system actions, automated runbooks are the difference between "we followed the procedure" and "here's the CloudTrail-verified proof we followed the procedure."
+
+**"How do you run a post-incident review?"**
+I use a blameless PIR format: timeline (detection → mitigation → resolution), contributing factors (not root cause — complex systems rarely have one), what worked well, and action items with owners and due dates. The CloudWatch dashboard with incident annotations gives the team a visual timeline to anchor the discussion. I track PIR action items in the same backlog as feature work — if they're in a separate doc, they never get done.
+
+**"What SLOs would you define for a CT scan processing service like Cleerly's?"**
+Two primary ones: availability (99.9% of scans successfully processed) and latency (99.5% of scans return results within 30 seconds). I'd also add a data freshness SLO if results feed a downstream dashboard. The 30-second latency threshold is domain-specific — it maps to what a radiologist workflow can tolerate before the tool becomes an obstacle rather than an accelerator.
+
 ## Validation & Error Budget Status
 
 ```bash

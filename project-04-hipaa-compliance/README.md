@@ -295,6 +295,26 @@ aws events put-rule \
 
 ---
 
+## Interview Talking Points
+
+**"What's the difference between AWS Config and Security Hub — why use both?"**
+AWS Config is a resource inventory and drift detector — it continuously records every configuration change and evaluates resources against rules. Security Hub is an aggregation layer: it ingests findings from Config, GuardDuty, Inspector, and Macie, normalizes them into a single ASFF format, and gives you a prioritized compliance score. Config tells you *what* changed; Security Hub tells you *what to fix first*.
+
+**"Why use S3 Object Lock in COMPLIANCE mode for CloudTrail logs?"**
+HIPAA requires audit logs to be retained for 6 years and protected from modification or deletion. COMPLIANCE mode means no user — not even the root account — can delete or shorten the retention period before it expires. This creates a tamper-proof audit trail that satisfies both HIPAA §164.312(b) and SOC 2 CC7.2 without relying on IAM policies alone.
+
+**"How do IAM permission boundaries prevent privilege escalation?"**
+A permission boundary caps the maximum permissions a role can have, regardless of what's in its identity-based policy. Even if an engineer creates a role and attaches `AdministratorAccess`, the boundary's `DenyPrivilegeEscalation` block prevents that role from creating new roles, attaching policies, or calling `sts:AssumeRole` to escape the boundary. The `DenyModifyBoundary` block stops engineers from removing their own boundary and granting themselves unlimited access.
+
+**"What does your auto-remediation look like for a non-compliant Config rule?"**
+EventBridge watches CloudTrail for `CreateRole` API calls. When one fires, a Lambda function runs, checks whether the new role has the permission boundary attached, and if not, attaches it automatically within seconds. The Lambda execution is itself logged to CloudTrail, giving you a full audit trail of: who created the role, when the boundary was auto-enforced, and which Lambda run did it.
+
+**"How would you demonstrate HIPAA compliance to an auditor?"**
+Three artifacts: (1) Security Hub HIPAA standard report showing control pass rates; (2) Config compliance timeline proving continuous monitoring, not point-in-time; (3) CloudTrail log integrity validation output confirming logs haven't been tampered with. The S3 Object Lock configuration is the physical evidence that no one could have deleted the logs even if they wanted to.
+
+**"Why enable GuardDuty EKS Runtime Monitoring specifically?"**
+Standard GuardDuty covers network and API-level threats. EKS Runtime Monitoring installs a lightweight eBPF agent on each node to detect anomalous *in-container* behavior — a compromised pod exfiltrating data, a container spawning a reverse shell, or a process attempting to access `/etc/shadow`. In a healthcare environment where containers may process PHI, detecting lateral movement inside the cluster before it reaches a data store is critical.
+
 ## Compliance Verification Commands
 
 ```bash
