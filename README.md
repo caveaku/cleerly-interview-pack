@@ -85,6 +85,40 @@ Defines SLOs and error budgets with CloudWatch, integrates PagerDuty alerting, a
 
 ---
 
+---
+
+## Interview Talking Points
+
+### Project 01 — Production VPC + EKS with Terraform
+
+> "I built a production-grade AWS environment from scratch using Terraform modules with remote state stored in S3 and DynamoDB for state locking. I provisioned a multi-AZ VPC with private subnets for EKS workloads, a private-only API endpoint to satisfy HIPAA requirements, KMS-encrypted secrets, and full control plane logging to CloudWatch. I also enforced security policy scanning with `tfsec` and `checkov` as pre-commit hooks so infrastructure issues are caught before they ever reach a PR. This directly maps to your expectation of owning and maintaining a Terraform codebase with IaC best practices."
+
+---
+
+### Project 02 — GitHub Actions CI/CD + Security Scanning
+
+> "I designed an end-to-end CI/CD pipeline using GitHub Actions that builds Docker images, pushes them to ECR using OIDC — no long-lived AWS keys — runs Trivy container scanning to block on CRITICAL and HIGH CVEs, and deploys to EKS via ArgoCD GitOps. Every deployment is tied to a Git SHA, fully auditable, and self-healing. This directly addresses your requirement for building and maintaining secure build pipelines using GitHub Actions."
+
+---
+
+### Project 03 — EKS Autoscaling & Observability
+
+> "I deployed Karpenter for node autoscaling — which provisions nodes in under 60 seconds and consolidates underutilized ones automatically — and stood up the full kube-prometheus-stack with custom SLO recording rules and alerting. I also documented the zero-downtime EKS upgrade process, including deprecated API detection with Pluto. This covers your requirement to manage EKS environments including scaling, upgrades, and observability."
+
+---
+
+### Project 04 — HIPAA/HITRUST/SOC 2 Compliance Guardrails
+
+> "I automated continuous compliance using AWS Security Hub with the HIPAA standard enabled, GuardDuty with EKS runtime monitoring, Config rules for drift detection, and CloudTrail with S3 Object Lock in COMPLIANCE mode for tamper-proof 6-year log retention. I also implemented IAM permission boundaries to prevent privilege escalation and an EventBridge + Lambda auto-remediation loop to enforce boundaries on every new role. This maps directly to your need to ensure alignment with HIPAA, HITRUST, and SOC 2 in a healthcare environment."
+
+---
+
+### Project 05 — SLO/SLA Monitoring & Incident Response
+
+> "I defined SLOs as code using Sloth — including a 99.9% availability SLO and a 30-second CT scan latency SLO — with multi-window burn rate alerts to catch both fast and slow budget drains. I reduced alert fatigue using CloudWatch composite alarms that require correlated signals before paging. I also built SSM Automation runbooks for codified, auditable incident response and a CloudWatch PIR dashboard with annotated incident timelines. This directly supports your requirement to define and track SLOs, participate in on-call, and lead post-incident reviews."
+
+---
+
 ## Prerequisites
 
 ```bash
